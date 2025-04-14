@@ -1,6 +1,7 @@
 import os
 import socket
 import sys
+import json
 
 def search_files(path, query):
     matches = []
@@ -10,25 +11,21 @@ def search_files(path, query):
                 matches.append(os.path.join(root, f))
     return matches
 
-def start(port, path):
-    s = socket.socket()
-    s.bind(('localhost', port))
-    s.listen(1)
-    print(f"Started working on port {port}.")
+def start(host='localhost', port=15000, search_path='.'):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((host, port))
     print(f"Searching in {path} ...")
 
     while True:
-        conn, _ = s.accept()
-        query = conn.recv(1024).decode()
-
-        if query == "__shutdown__":
-            print(f"Worker on port {port} shutting down.")
-            conn.close()
+        data = s.recv(4096)
+        if not data:
             break
-
-        results = search_files(path, query)
-        conn.sendall('\n'.join(results).encode())
-        conn.close()
+        message = json.loads(data.decode())
+        query = message.get("query")
+        if query:
+            print(f"[SEARCH] Looking for '{query}' in {search_path}")
+            results = search_files(query, search_path)
+            s.sendall(json.dumps({"results": results}).encode())
 
 if __name__ == "__main__":
     port = int(sys.argv[1])
