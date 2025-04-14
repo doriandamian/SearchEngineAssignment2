@@ -11,10 +11,10 @@ def search_files(path, query):
                 matches.append(os.path.join(root, f))
     return matches
 
-def start(host='localhost', port=15000, search_path='.'):
+def start(host='localhost', port=5050, search_path='.'):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((host, port))
-    print(f"Searching in {path} ...")
+    print(f"[WORKER] Searching in {path} ...")
 
     while True:
         data = s.recv(4096)
@@ -23,11 +23,13 @@ def start(host='localhost', port=15000, search_path='.'):
         message = json.loads(data.decode())
         query = message.get("query")
         if query:
-            print(f"[SEARCH] Looking for '{query}' in {search_path}")
-            results = search_files(query, search_path)
-            s.sendall(json.dumps({"results": results}).encode())
+            print(f"[WORKER] Looking for '{query}' in {search_path}")
+            results = search_files(search_path, query)
+            print(f"[WORKER] Found {len(results)} matches in {search_path}. Sending back to controller.")
+            msg = json.dumps({"results": results}).encode()
+            msg_len = len(msg).to_bytes(4, byteorder="big")
+            s.sendall(msg_len + msg)
 
 if __name__ == "__main__":
-    port = int(sys.argv[1])
-    path = sys.argv[2]
-    start(port, path)
+    path = sys.argv[1]
+    start(search_path=path)
